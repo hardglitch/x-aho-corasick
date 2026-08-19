@@ -146,35 +146,44 @@ impl FastPatternMatcher {
     }
 
     /// Entry point for the search. Uses runtime feature detection to dispatch.
-    pub fn find_all(&self, text: &str) -> Vec<(usize, usize)> {
+    pub fn find_all_in(&self, text: &str) -> Vec<(usize, usize)> {
         if is_x86_feature_detected!("avx2") {
-            unsafe { self.find_all_avx2(text) }
+            unsafe { self.find_all_avx2(text, false) }
         } else if is_x86_feature_detected!("avx") {
-            unsafe { self.find_all_avx(text) }
+            unsafe { self.find_all_avx(text, false) }
         } else {
-            self.find_all_scalar(text)
+            self.find_all_scalar(text, false)
+        }
+    }
+    pub fn find_any_in(&self, text: &str) -> Vec<(usize, usize)> {
+        if is_x86_feature_detected!("avx2") {
+            unsafe { self.find_all_avx2(text, true) }
+        } else if is_x86_feature_detected!("avx") {
+            unsafe { self.find_all_avx(text, true) }
+        } else {
+            self.find_all_scalar(text, true)
         }
     }
 
     /// AVX2 Implementation (32-byte skips)
     #[target_feature(enable = "avx2")]
-    fn find_all_avx2(&self, text: &str) -> Vec<(usize, usize)> {
-        self.dispatch(text, |chunk, offset| self.search_core(chunk, offset, SIMDVersion::AVX2))
+    fn find_all_avx2(&self, text: &str, any: bool) -> Vec<(usize, usize)> {
+        self.dispatch(text, |chunk, offset| self.search_core(chunk, offset, SIMDVersion::AVX2), any)
     }
 
     /// AVX1 Implementation (16-byte skips)
     #[target_feature(enable = "avx")]
-    fn find_all_avx(&self, text: &str) -> Vec<(usize, usize)> {
-        self.dispatch(text, |chunk, offset| self.search_core(chunk, offset, SIMDVersion::AVX))
+    fn find_all_avx(&self, text: &str, any: bool) -> Vec<(usize, usize)> {
+        self.dispatch(text, |chunk, offset| self.search_core(chunk, offset, SIMDVersion::AVX), any)
     }
 
     /// Scalar Implementation (No SIMD)
-    fn find_all_scalar(&self, text: &str) -> Vec<(usize, usize)> {
-        self.dispatch(text, |chunk, offset| self.search_core(chunk, offset, SIMDVersion::None))
+    fn find_all_scalar(&self, text: &str, any: bool) -> Vec<(usize, usize)> {
+        self.dispatch(text, |chunk, offset| self.search_core(chunk, offset, SIMDVersion::None), any)
     }
 
     /// Internal dispatcher
-    fn dispatch<F>(&self, text: &str, search_func: F) -> Vec<(usize, usize)>
+    fn dispatch<F>(&self, text: &str, search_func: F, any: bool) -> Vec<(usize, usize)>
         where F: Fn(&[u8], usize) -> Vec<(usize, usize)>,
     {
         let bytes = text.as_bytes();
@@ -183,6 +192,7 @@ impl FastPatternMatcher {
         const CHUNK_SIZE: usize = 128 * 1024;
         let max_pat_len = *self.pattern_lengths.iter().max().unwrap_or(&0);
 
+        let take = if any { 1 } else { usize::MAX };
         bytes.chunks(CHUNK_SIZE)
             .enumerate()
             .flat_map(|(idx, chunk)| {
@@ -192,6 +202,7 @@ impl FastPatternMatcher {
                 let slice = bytes.get(offset..end).unwrap_or_default();
                 search_func(slice, offset)
             })
+            .take(take)
             .collect()
     }
 
