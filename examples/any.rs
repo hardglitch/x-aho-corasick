@@ -1,8 +1,6 @@
-use aho_corasick::FastPatternMatcher;
-
 fn main() {
     let patterns = vec!["ma", "mama", "cat", "at", "ма", "кошка", "лужа", "каша"];
-    let matcher = FastPatternMatcher::new(&patterns);
+    let matcher = aho_corasick::FastPatternMatcher::new(&patterns);
 
     let text = "Мама (mama) вела кошку (cat) к луже, а в каше была (was) малина!".to_lowercase();
     let one_match = matcher.find_any_in(&text);
