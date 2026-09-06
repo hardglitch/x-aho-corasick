@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-const ALPHABET_SIZE: usize = 256; // >=2^8...<=2^32 , e.g 2^9, 2^10 etc
+const ALPHABET_SIZE: usize = 256; // >=2^8, e.g 2^9, 2^10 etc
 
 /// Production-grade Aho-Corasick implementation.
 /// Optimized for high-speed scanning of large texts with massive pattern sets,
