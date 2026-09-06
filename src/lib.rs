@@ -103,7 +103,7 @@ impl FastPatternMatcher {
     pub fn find_any_in(&self, text: &str) -> Vec<(usize, usize)> {
         self.find_inner(text, true)
     }
-    #[inline]
+    #[inline(always)]
     fn find_inner(&self, text: &str, any: bool) -> Vec<(usize, usize)> {
         let bytes = text.as_bytes();
         let mut results = Vec::new();
