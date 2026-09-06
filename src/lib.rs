@@ -60,22 +60,21 @@ impl FastPatternMatcher {
 
         while let Some(u) = queue.pop_front() {
             let u_idx = u as usize;
-			
-            for (v, &b) in trie_nodes[u_idx].iter().enumerate() {
-                let b = b as usize;
+            for (b, &v) in trie_nodes[u_idx].iter().enumerate() {
+                let v_idx = v as usize;
                 if v > 0 {
                     let f = fail[u_idx] as usize;
                     let idx = f * ALPHABET_SIZE + b;
-                    fail[v] = transitions[idx];
+                    fail[v_idx] = transitions[idx];
 
-                    let f_link = fail[v];
-                    dict_links[v] =
+                    let f_link = fail[v_idx];
+                    dict_links[v_idx] =
                         if output_pattern_idx[f_link as usize] != -1 { f_link }
                         else { dict_links[f_link as usize] };
 
                     let idx = u_idx * ALPHABET_SIZE + b;
-                    transitions[idx] = v as u32; // safety: ALPHABET_SIZE <= u32::MAX (UTF32)
-                    queue.push_back(v as u32);  // safety: ALPHABET_SIZE <= u32::MAX (UTF32)
+                    transitions[idx] = v;
+                    queue.push_back(v);
                 }
 
                 else {
