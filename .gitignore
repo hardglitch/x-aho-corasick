@@ -3,6 +3,9 @@
 !/src/*.rs
 !/examples/
 !/examples/*.rs
+!/benches/
+!/benches/*.rs
+!/benches/*.txt
 !.gitignore
 !Cargo.toml
 !LICENSE
