@@ -1,88 +1,152 @@
+mod iter;
+
 use std::collections::VecDeque;
+use iter::MatchIterator;
 
 const ALPHABET_SIZE: usize = 256; // >=2^8, e.g 2^9, 2^10 etc
+/// This one uses u32/i32 for realistic tasks (for the memory saving), but you can use other types
+type UType = u32;
+type IType = i32; // Max patterns = IType::MAX
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Match {
+    start_pos: usize,
+    pattern_idx: usize,
+}
+impl Match {
+    pub fn new(start_pos: usize, pattern_idx: usize) -> Self {
+        Self { start_pos, pattern_idx }
+    }
+    #[inline]
+    pub fn start_pos(&self) -> usize {
+        self.start_pos
+    }
+    #[inline]
+    pub fn pattern_index(&self) -> usize {
+        self.pattern_idx
+    }
+}
 
 /// Production-grade Aho-Corasick implementation.
-/// Optimized for high-speed scanning of large texts with massive pattern sets,
+/// Optimized for extreme-speed scanning of large texts with massive pattern sets,
 /// but with some memory overhead
 pub struct FastPatternMatcher {
     /// Flattened transition table: [node_index * ALPHABET_SIZE + byte] -> next_node_index
-    transitions: Vec<u32>,
+    transitions: Vec<UType>,
     /// Dictionary links: points to the nearest node that is an end-of-pattern.
-    dict_links: Vec<u32>,
+    dict_links: Vec<UType>,
     /// Stores the index of the pattern ending at this node (if any).
-    output_pattern_idx: Vec<i32>, // -1 if no pattern ends here
+    /// Max patterns = IType::MAX
+    output_pattern_idx: Vec<IType>, // -1 if no pattern ends here
     /// Pre-calculated lengths of patterns.
     pattern_lengths: Vec<usize>,
 }
-
 impl FastPatternMatcher {
-    pub fn new(patterns: &[&str]) -> Self {
-        let mut trie_nodes = vec![[0u32; ALPHABET_SIZE]]; // Root node
-        let mut output_pattern_idx = vec![-1i32];
-        let mut pattern_lengths = Vec::with_capacity(patterns.len());
+    pub fn new<T>(patterns: &[T]) -> Self
+        where T: AsRef<str> + Sized
+    {
+        let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
+        let mut output_pattern_idx = vec![-1];
+        let patterns_len = patterns.len().clamp(0, IType::MAX as usize);
+        let mut pattern_lengths = Vec::with_capacity(patterns_len);
 
         // --- Phase 1: Build Trie ---
-        for (idx, pattern) in patterns.iter().enumerate() {
-            let bytes = pattern.as_bytes();
+        for (idx, pattern) in patterns.iter().take(patterns_len).enumerate() {
+            let bytes = pattern.as_ref().as_bytes();
             pattern_lengths.push(bytes.len());
             let mut curr = 0;
 
             for &b in bytes {
                 let b = b as usize;
-                if  trie_nodes[curr][b] == 0 {
-                    trie_nodes[curr][b] = trie_nodes.len() as u32;
-                    trie_nodes.push([0u32; ALPHABET_SIZE]);
-                    output_pattern_idx.push(-1);
+                // Safety: ALPHABET_SIZE >= 256, and b is an u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE).
+                unsafe {
+                    if *trie_nodes.get_unchecked(curr).get_unchecked(b) == 0 {
+                        *trie_nodes.get_unchecked_mut(curr).get_unchecked_mut(b) = trie_nodes.len() as u32;
+                        trie_nodes.push([0; ALPHABET_SIZE]);
+                        output_pattern_idx.push(-1);
+                    }
+                    curr = *trie_nodes.get_unchecked(curr).get_unchecked(b) as usize;
                 }
-                curr = trie_nodes[curr][b] as usize;
             }
 
             // Store pattern index at the terminal node
-            output_pattern_idx[curr] = idx as i32;
+            // Safety: curr is a valid index because it was just pushed or existed in trie_nodes
+            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as IType; }
         }
 
         let num_nodes = trie_nodes.len();
-        let mut fail = vec![0u32; num_nodes];
-        let mut dict_links = vec![0u32; num_nodes];
-        let mut transitions = vec![0u32; num_nodes * ALPHABET_SIZE];
+        let mut fail = vec![0; num_nodes];
+        let mut dict_links = vec![0; num_nodes];
+        let mut transitions = vec![0; num_nodes * ALPHABET_SIZE];
 
         // --- Phase 2: Build Failure and Dictionary Links (BFS) ---
-        let mut queue = VecDeque::<u32>::new();
+        let mut queue = VecDeque::<UType>::with_capacity(num_nodes);
 
         for b in 0..ALPHABET_SIZE {
-            let child = trie_nodes[0][b];
+            // Safety: root node is not empty and b in 0..<ALPHABET_SIZE always
+            let child = unsafe { *trie_nodes.get_unchecked(0).get_unchecked(b) };
             if child > 0 {
-                transitions[b] = child;
+                // Safety: transitions.len() >= ALPHABET_SIZE and b < 256 (minimal ALPHABET_SIZE).
+                // Always within bounds.
+                unsafe { *transitions.get_unchecked_mut(b) = child; }
                 queue.push_back(child);
             }
         }
 
         while let Some(u) = queue.pop_front() {
             let u_idx = u as usize;
-            for (b, &v) in trie_nodes[u_idx].iter().enumerate() {
+            // Safety: u_idx is an index of a node previously stored in trie_nodes.
+            // Since all values added to the queue are valid indices from the trie,
+            // u_idx will always be within [0, trie_nodes.len() - 1].
+            let node = unsafe { *trie_nodes.get_unchecked(u_idx) };
+            for (b, &v) in node.iter().enumerate() {
                 let v_idx = v as usize;
                 if v > 0 {
-                    let f = fail[u_idx] as usize;
+                    // Safety: u_idx is derived from values stored in trie_nodes.
+                    // Since the number of nodes in the Trie defines the length of the fail array,
+                    // any valid node index u will satisfy 0 <= u < fail.len().
+                    let f = unsafe { *fail.get_unchecked(u_idx) as usize };
                     let idx = f * ALPHABET_SIZE + b;
-                    fail[v_idx] = transitions[idx];
 
-                    let f_link = fail[v_idx];
-                    dict_links[v_idx] =
-                        if output_pattern_idx[f_link as usize] != -1 { f_link }
-                        else { dict_links[f_link as usize] };
+                    // Safety: idx < num_nodes * ALPHABET_SIZE because u_idx < num_nodes
+                    // and b < 256 (minimal ALPHABET_SIZE)
+                    unsafe { *fail.get_unchecked_mut(v_idx) = *transitions.get_unchecked(idx); }
+
+                    // Safety: v_idx is an index of a node stored in trie_nodes.
+                    // Since the number of nodes in the Trie defines the length of the fail array,
+                    // any valid node index v will satisfy 0 <= v < fail.len().
+                    let f_link = unsafe { *fail.get_unchecked(v_idx) };
+
+                    // Safety:
+                    // 1. Bounds: f_link is a valid node index (0 <= f_link < num_nodes),
+                    //    so access to output_pattern_idx and dict_links is safe.
+                    // 2. Termination: Since f_link always points to a node with smaller depth,
+                    //    the dictionary link chain is acyclic and will eventually reach the root (node 0).
+                    unsafe {
+                        *dict_links.get_unchecked_mut(v_idx) =
+                            if *output_pattern_idx.get_unchecked(f_link as usize) != -1 { f_link }
+                            else { *dict_links.get_unchecked(f_link as usize) };
+                    }
 
                     let idx = u_idx * ALPHABET_SIZE + b;
-                    transitions[idx] = v;
+
+                    // Safety: Transitions optimization uses pre-calculated transitions from failure link
+                    unsafe { *transitions.get_unchecked_mut(idx) = v; }
                     queue.push_back(v);
                 }
 
                 else {
-                    let f = fail[u_idx] as usize;
+                    // Safety: u_idx is derived from values stored in trie_nodes.
+                    // Since the number of nodes in the Trie defines the length of the fail array,
+                    // any valid node index u will satisfy 0 <= u < fail.len().
+                    let f = unsafe { *fail.get_unchecked(u_idx) as usize };
+
                     // Automaton optimization: pre-calculate the transition for non-existent Trie edges
                     let idx1 = u_idx * ALPHABET_SIZE + b;
                     let idx2 = f * ALPHABET_SIZE + b;
-                    transitions[idx1] = transitions[idx2];
+
+                    // Safety: Transitions optimization uses pre-calculated transitions from failure link
+                    unsafe { *transitions.get_unchecked_mut(idx1) = *transitions.get_unchecked(idx2); }
                 }
             }
         }
@@ -96,38 +160,17 @@ impl FastPatternMatcher {
     }
 
     #[inline]
-    pub fn find_all_in(&self, text: &str) -> Vec<(usize, usize)> {
-        self.find_inner(text, false)
+    pub fn find_all_in<'a>(&'a self, text: &'a str) -> MatchIterator<'a> {
+        MatchIterator {
+            matcher: self,
+            text_bytes: text.as_bytes(),
+            current_byte_idx: 0,
+            current_node: 0,
+            next_match: None,
+        }
     }
     #[inline]
-    pub fn find_any_in(&self, text: &str) -> Vec<(usize, usize)> {
-        self.find_inner(text, true)
-    }
-    #[inline(always)]
-    fn find_inner(&self, text: &str, any: bool) -> Vec<(usize, usize)> {
-        let bytes = text.as_bytes();
-        let mut results = Vec::new();
-        let mut curr = 0_usize;
-
-        for (i, &b) in bytes.iter().enumerate() {
-            let idx = curr * ALPHABET_SIZE + (b as usize);
-            curr = self.transitions[idx] as usize;
-
-            if curr != 0 {
-                let mut temp = curr;
-                while temp != 0 {
-                    let p_idx = self.output_pattern_idx[temp];
-                    if p_idx != -1 {
-                        let idx = p_idx as usize;
-                        let val = self.pattern_lengths[idx];
-                        results.push((i + 1 - val, idx));
-                        if any { return results }
-                    }
-                    // Jump to next pattern using dictionary links
-                    temp = self.dict_links[temp] as usize;
-                }
-            }
-        }
-        results
+    pub fn find_any_in<'a>(&'a self, text: &'a str) -> Option<Match> {
+        self.find_all_in(text).next()
     }
 }
