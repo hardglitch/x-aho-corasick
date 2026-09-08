@@ -1,10 +1,12 @@
 use crate::{FastPatternMatcher, Match, ALPHABET_SIZE};
 
+/// BUFFER_SIZE defines the maximum number of nested matches
+/// that can end at the same character.
 const BUFFER_SIZE: usize = 32; // overkill value
 
 pub struct MatchIterator<'a> {
     pub(crate) matcher: &'a FastPatternMatcher,
-    pub(crate) text_bytes: &'a [u8],
+    pub(crate) bytes: &'a [u8],
     pub(crate) current_byte_idx: usize,
     pub(crate) current_node: usize,
 	pub(crate) pending_matches: [Option<Match>; BUFFER_SIZE],
@@ -23,33 +25,30 @@ impl<'a> Iterator for MatchIterator<'a> {
         let output_pattern_idx = &self.matcher.output_pattern_idx;
         let pattern_lengths = &self.matcher.pattern_lengths;
 
-        // We start searching at current position (current byte is not processed yet)
-        // while self.current_byte_idx < self.text_bytes.len() {
 		loop {
-			// 1. Если в буфере есть совпадения, отдаем первое из них
+            // 1. If there are matches in the buffer, return the first one.
 			if self.pending_count > 0 {
-				// Safety: 
+                // Safety: pending_count <= BUFFER_SIZE guarantees that index 0 is always valid.
 				let m = unsafe { *self.pending_matches.get_unchecked(0) };
 
+                // Shift the buffer to the left (removing the first element).
 				for i in 0..self.pending_count - 1 {
-					// Safety:
-					unsafe {
-						*self.pending_matches.get_unchecked_mut(i) = *self.pending_matches.get_unchecked(i + 1);
-					}
+                    // Safety: i + 1 is always < pending_count, and thus <= BUFFER_SIZE.
+					unsafe { *self.pending_matches.get_unchecked_mut(i) = *self.pending_matches.get_unchecked(i + 1); }
 				}
 				self.pending_count -= 1;
 				return m;
 			}
-			
-			// 2. Если буфер пуст, ищем новый байт в тексте
-            if self.current_byte_idx >= self.text_bytes.len() {
-                return None; // Конец текста
+
+            // 2. If the buffer is empty, search for a new byte in the text.
+            if self.current_byte_idx >= self.bytes.len() {
+                return None; // End of the text
             }
 
             let i = self.current_byte_idx;
             // Safety: The loop condition 'self.current_byte_idx < self.text_bytes.len()'
             // guarantees that the index is always within bounds of the text_bytes slice.
-            let b = unsafe { *self.text_bytes.get_unchecked(i) as usize };
+            let b = unsafe { *self.bytes.get_unchecked(i) as usize };
 
             // Go to the next node (DFA transition)
             // Safety: self.current_node is always a value from transitions, which are indices < num_nodes.
@@ -77,7 +76,7 @@ impl<'a> Iterator for MatchIterator<'a> {
                     let pos = i + 1 - len;
 
 					if self.pending_count < BUFFER_SIZE {
-						// Safety: 
+                        // Safety: pending_count is checked before writing, and the index is always < BUFFER_SIZE.
 						unsafe {
 							*self.pending_matches.get_unchecked_mut(self.pending_count) = Some(Match::new(pos, idx));
 						}

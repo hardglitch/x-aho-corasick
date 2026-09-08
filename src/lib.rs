@@ -10,7 +10,7 @@ const ALPHABET_SIZE: usize = 256; // UTF-8
 
 /// This one uses u32/i32 for realistic tasks (to save memory), but you can use other types
 type UType = u32;
-type IType = i32; // Max patterns = IType::MAX
+type IType = i32; // Max pattern patterns = IType::MAX
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Match {
@@ -42,7 +42,7 @@ pub struct FastPatternMatcher {
     /// Dictionary links: points to the nearest node that is an end-of-pattern.
     dict_links: Vec<UType>,
     /// Stores the index of the pattern ending at this node (if any).
-    /// Max patterns = IType::MAX
+    /// Max pattern numbers = IType::MAX
     output_pattern_idx: Vec<IType>, // -1 if no pattern ends here
     /// Pre-calculated lengths of patterns.
     pattern_lengths: Vec<usize>,
@@ -179,7 +179,7 @@ impl FastPatternMatcher {
     pub fn find_all_bytes_in<'a>(&'a self, bytes: &'a [u8]) -> iter_no::MatchIterator<'a> {
         iter_no::MatchIterator {
             matcher: self,
-            text_bytes: bytes,
+            bytes,
             current_byte_idx: 0,
             current_node: 0,
         }
@@ -188,7 +188,7 @@ impl FastPatternMatcher {
     pub fn find_all_bytes_overlapping_in<'a>(&'a self, bytes: &'a [u8]) -> iter::MatchIterator<'a> {
         iter::MatchIterator {
             matcher: self,
-            text_bytes: bytes,
+            bytes,
             current_byte_idx: 0,
             current_node: 0,
             pending_matches: Default::default(),

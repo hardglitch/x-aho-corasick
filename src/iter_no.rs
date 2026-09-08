@@ -2,7 +2,7 @@ use crate::{FastPatternMatcher, Match, ALPHABET_SIZE};
 
 pub struct MatchIterator<'a> {
     pub(crate) matcher: &'a FastPatternMatcher,
-    pub(crate) text_bytes: &'a [u8],
+    pub(crate) bytes: &'a [u8],
     pub(crate) current_byte_idx: usize,
     pub(crate) current_node: usize,
 }
@@ -18,11 +18,11 @@ impl<'a> Iterator for MatchIterator<'a> {
         let pattern_lengths = &self.matcher.pattern_lengths;
 
         // We start searching at current position (current byte is not processed yet)
-        while self.current_byte_idx < self.text_bytes.len() {
+        while self.current_byte_idx < self.bytes.len() {
             let i = self.current_byte_idx;
             // Safety: The loop condition 'self.current_byte_idx < self.text_bytes.len()'
             // guarantees that the index is always within bounds of the text_bytes slice.
-            let b = unsafe { *self.text_bytes.get_unchecked(i) as usize };
+            let b = unsafe { *self.bytes.get_unchecked(i) as usize };
 
             // Go to the next node (DFA transition)
             // Safety: self.current_node is always a value from transitions, which are indices < num_nodes.
