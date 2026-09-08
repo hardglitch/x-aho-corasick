@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
-use std::io::BufRead;
 use std::path::PathBuf;
 use aho_corasick::AhoCorasick;
 use x_aho_corasick::FastPatternMatcher;
