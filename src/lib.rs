@@ -1,19 +1,24 @@
 mod iter;
+mod iter_no;
+#[cfg(test)]
+mod tests;
 
 use std::collections::VecDeque;
-use iter::MatchIterator;
 
-const ALPHABET_SIZE: usize = 256; // >=2^8, e.g 2^9, 2^10 etc
-/// This one uses u32/i32 for realistic tasks (for the memory saving), but you can use other types
+/// Alphabet size must be at least 256 to cover all possible u8 values.
+const ALPHABET_SIZE: usize = 256; // UTF-8
+
+/// This one uses u32/i32 for realistic tasks (to save memory), but you can use other types
 type UType = u32;
 type IType = i32; // Max patterns = IType::MAX
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Match {
     start_pos: usize,
     pattern_idx: usize,
 }
 impl Match {
+    #[inline]
     pub fn new(start_pos: usize, pattern_idx: usize) -> Self {
         Self { start_pos, pattern_idx }
     }
@@ -29,7 +34,8 @@ impl Match {
 
 /// Production-grade Aho-Corasick implementation.
 /// Optimized for extreme-speed scanning of large texts with massive pattern sets,
-/// but with some memory overhead
+/// but at the cost of increased memory overhead.
+#[derive(Debug)]
 pub struct FastPatternMatcher {
     /// Flattened transition table: [node_index * ALPHABET_SIZE + byte] -> next_node_index
     transitions: Vec<UType>,
@@ -42,9 +48,7 @@ pub struct FastPatternMatcher {
     pattern_lengths: Vec<usize>,
 }
 impl FastPatternMatcher {
-    pub fn new<T>(patterns: &[T]) -> Self
-        where T: AsRef<str> + Sized
-    {
+    pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
         let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
         let mut output_pattern_idx = vec![-1];
         let patterns_len = patterns.len().clamp(0, IType::MAX as usize);
@@ -52,11 +56,10 @@ impl FastPatternMatcher {
 
         // --- Phase 1: Build Trie ---
         for (idx, pattern) in patterns.iter().take(patterns_len).enumerate() {
-            let bytes = pattern.as_ref().as_bytes();
-            pattern_lengths.push(bytes.len());
+            pattern_lengths.push(pattern.as_ref().len());
             let mut curr = 0;
 
-            for &b in bytes {
+            for &b in pattern.as_ref().iter() {
                 let b = b as usize;
                 // Safety: ALPHABET_SIZE >= 256, and b is an u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE).
                 unsafe {
@@ -160,17 +163,40 @@ impl FastPatternMatcher {
     }
 
     #[inline]
-    pub fn find_all_in<'a>(&'a self, text: &'a str) -> MatchIterator<'a> {
-        MatchIterator {
-            matcher: self,
-            text_bytes: text.as_bytes(),
-            current_byte_idx: 0,
-            current_node: 0,
-            next_match: None,
-        }
+    pub fn find_all_in<'a>(&'a self, text: &'a str) -> iter_no::MatchIterator<'a> {
+        self.find_all_bytes_in(text.as_bytes())
+    }
+    #[inline]
+    pub fn find_all_overlapping_in<'a>(&'a self, text: &'a str) -> iter::MatchIterator<'a> {
+        self.find_all_bytes_overlapping_in(text.as_bytes())
     }
     #[inline]
     pub fn find_any_in<'a>(&'a self, text: &'a str) -> Option<Match> {
-        self.find_all_in(text).next()
+        self.find_all_bytes_in(text.as_bytes()).next()
+    }
+
+    #[inline]
+    pub fn find_all_bytes_in<'a>(&'a self, bytes: &'a [u8]) -> iter_no::MatchIterator<'a> {
+        iter_no::MatchIterator {
+            matcher: self,
+            text_bytes: bytes,
+            current_byte_idx: 0,
+            current_node: 0,
+        }
+    }
+    #[inline]
+    pub fn find_all_bytes_overlapping_in<'a>(&'a self, bytes: &'a [u8]) -> iter::MatchIterator<'a> {
+        iter::MatchIterator {
+            matcher: self,
+            text_bytes: bytes,
+            current_byte_idx: 0,
+            current_node: 0,
+            pending_matches: Default::default(),
+            pending_count: 0,
+        }
+    }
+    #[inline]
+    pub fn find_any_byte_in<'a>(&'a self, bytes: &'a [u8]) -> Option<Match> {
+        self.find_all_bytes_in(bytes).next()
     }
 }

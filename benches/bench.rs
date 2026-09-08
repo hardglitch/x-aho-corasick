@@ -11,13 +11,20 @@ fn bench(c: &mut Criterion) {
     let text = std::fs::read_to_string(&p).expect("File not found").to_lowercase();
 
     let p = PathBuf::from("benches").join("patterns.txt");
-    let f = std::fs::File::open(p).expect("File not found");
-    let buf = std::io::BufReader::new(f);
-    let patterns = buf.lines()
-        .map_while(|s| s.ok())
-        .collect::<Vec<String>>();
+    let content = std::fs::read(p).expect("File not found");
+    let patterns: Vec<&[u8]> =
+        content
+            .split(|&b| b == b'\n')
+            .filter_map(|line| {
+                let trimmed =
+                    if line.ends_with(b"\r") { &line[..line.len() - 1] }
+                    else { line };
+                if !trimmed.is_empty() { Some(trimmed) } else { None }
+            })
+            .collect();
 
-    // Bench
+    // --- Bench ---
+
     let mut group = c.benchmark_group("Comparison");
 
     // aho-corasick

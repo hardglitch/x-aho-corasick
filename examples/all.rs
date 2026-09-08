@@ -1,7 +1,7 @@
 use x_aho_corasick::Match;
 
 fn main() {
-    let patterns = vec!["ma", "mama", "cat", "at", "ма", "кошка", "лужа", "каша"];
+    let patterns = ["ma", "mama", "cat", "at", "ма", "кошка", "лужа", "каша"];
     let matcher = x_aho_corasick::FastPatternMatcher::new(&patterns);
 
     let text = "Мама (mama) вела кошку (cat) к луже, а в каше была (was) малина (macatma)!".to_lowercase();
@@ -22,6 +22,6 @@ fn main() {
     // Start is a position in the byte array (text.as_bytes()). It's not a char position in the text
     for (n, m) in all_matches.enumerate() {
         assert_eq!(test_data.get(n), Some(&m));
-        println!("Found '{}' at position {}", patterns.get(m.pattern_index()).unwrap_or(&"None"), m.start_pos());
+        println!("Found '{}' at position {}", patterns[m.pattern_index()], m.start_pos());
     }
 }
