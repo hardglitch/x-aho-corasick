@@ -6,6 +6,9 @@
 !/benches/
 !/benches/*.rs
 !/benches/*.txt
+!/fuzz/
+!/fuzz/fuzz_targets/
+!/fuzz/fuzz_targets/*.rs
 !.gitignore
 !Cargo.toml
 !LICENSE
