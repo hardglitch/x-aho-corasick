@@ -1,10 +1,12 @@
 use crate::{FastPatternMatcher, Match, UType, ALPHABET_SIZE};
+use crate::ring_buffer::RingBuffer;
 
 pub struct MatchIterator<'a> {
     pub(crate) matcher: &'a FastPatternMatcher,
     pub(crate) bytes: &'a [u8],
     pub(crate) current_byte_idx: UType,
     pub(crate) current_node: UType,
+	pub(crate) pending_matches: RingBuffer<Match>,
 }
 impl<'a> Iterator for MatchIterator<'a> {
     type Item = Match;
@@ -14,12 +16,21 @@ impl<'a> Iterator for MatchIterator<'a> {
 
         // Preload pointers/lengths to avoid repeated bounds checks in the loop
         let transitions = &self.matcher.transitions;
+        let dict_links = &self.matcher.dict_links;
         let output_pattern_idx = &self.matcher.output_pattern_idx;
         let pattern_lengths = &self.matcher.pattern_lengths;
-        let bytes_len = self.bytes.len() as UType;
 
-        // We start searching at current position (current byte is not processed yet)
-        while self.current_byte_idx < bytes_len {
+		loop {
+            // 1. If there are matches in the buffer, return the first one.
+			if let Some(m) = self.pending_matches.pop_front() {
+				return Some(m)
+			}
+
+            // 2. If the buffer is empty, search for a new byte in the text.
+            if self.current_byte_idx >= self.bytes.len() as UType {
+                return None; // End of the text
+            }
+
             let i = self.current_byte_idx;
 
             // Safety: The loop condition 'self.current_byte_idx < self.text_bytes.len()'
@@ -33,8 +44,12 @@ impl<'a> Iterator for MatchIterator<'a> {
             let idx = self.current_node as usize * ALPHABET_SIZE + b;
             unsafe { self.current_node = *transitions.get_unchecked(idx); }
 
-                // Safety: self.current_node is a node index from transitions, so self.current_node < num_nodes.
-                let p_idx = unsafe { *output_pattern_idx.get_unchecked(self.current_node as usize) };
+			let mut found_match = false;
+
+            let mut temp = self.current_node as usize;
+            while temp > 0 {
+                // Safety: temp is a node index from transitions, so temp < num_nodes.
+                let p_idx = unsafe { *output_pattern_idx.get_unchecked(temp) };
                 if p_idx != UType::MAX {
                     // Safety: idx is an index into pattern_lengths, which was filled during construction.
                     let len = unsafe { *pattern_lengths.get_unchecked(p_idx as usize) };
@@ -45,12 +60,22 @@ impl<'a> Iterator for MatchIterator<'a> {
                     // ensuring the result is always a non-negative usize.
                     let pos = i + 1 - len;
 
-                    self.current_byte_idx = i + 1;
-                    self.current_node = 0;
-                    return Some(Match::new(pos, p_idx));
-                }
-                self.current_byte_idx += 1;
+					let m = Match::new(pos, p_idx);
+					self.pending_matches.push_back(m);
+					found_match = true;
+				}
+
+                // Jump to next pattern using dictionary links.
+                // Safety: temp is always a valid node index (< num_nodes) because
+                // all values in dict_links are either failure links or results of
+                // previous dict_link lookups. The loop terminates because
+                // dict_links always points to a node with a smaller depth.
+                temp = unsafe { *dict_links.get_unchecked(temp) as usize };
             }
-        None
+
+            self.current_byte_idx += 1;
+
+			if found_match { continue; }
+        }
     }
 }

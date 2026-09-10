@@ -1,5 +1,5 @@
+mod iter_ol;
 mod iter;
-mod iter_no;
 mod ring_buffer;
 #[cfg(test)]
 mod tests;
@@ -10,27 +10,29 @@ use ring_buffer::RingBuffer;
 /// Alphabet size must be at least 256 to cover all possible u8 values.
 const ALPHABET_SIZE: usize = 256; // UTF-8
 
-/// This one uses u32/i32 for realistic tasks (to save memory), but you can use other types
-type UType = u32;
-type IType = i32; // Max pattern patterns = IType::MAX
+/// This one uses u32 for realistic tasks (to save memory),
+/// but you can use other types (for your own risk)
+/// pattern_lengths < UType
+/// pattern_length <= UType
+type UType = u32; // Max pattern number = UType::MAX - 1
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Match {
-    start_pos: usize,
-    pattern_idx: usize,
+    start_pos: UType,
+    pattern_idx: UType,
 }
 impl Match {
     #[inline]
-    pub fn new(start_pos: usize, pattern_idx: usize) -> Self {
+    pub fn new(start_pos: UType, pattern_idx: UType) -> Self {
         Self { start_pos, pattern_idx }
     }
     #[inline]
     pub fn start_pos(&self) -> usize {
-        self.start_pos
+        self.start_pos as usize
     }
     #[inline]
     pub fn pattern_index(&self) -> usize {
-        self.pattern_idx
+        self.pattern_idx as usize
     }
 }
 
@@ -39,26 +41,21 @@ impl Match {
 /// but at the cost of increased memory overhead (uses DFA).
 #[derive(Debug)]
 pub struct FastPatternMatcher {
-    /// Flattened transition table: [node_index * ALPHABET_SIZE + byte] -> next_node_index
     transitions: Vec<UType>,
-    /// Dictionary links: points to the nearest node that is an end-of-pattern.
     dict_links: Vec<UType>,
-    /// Stores the index of the pattern ending at this node (if any).
-    /// Max pattern numbers = IType::MAX
-    output_pattern_idx: Vec<IType>, // -1 if no pattern ends here
-    /// Pre-calculated lengths of patterns.
-    pattern_lengths: Vec<usize>,
+    output_pattern_idx: Vec<UType>,
+    pattern_lengths: Vec<UType>,
 }
 impl FastPatternMatcher {
     pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
         let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
-        let mut output_pattern_idx = vec![-1];
-        let patterns_len = patterns.len().clamp(0, IType::MAX as usize);
-        let mut pattern_lengths = Vec::with_capacity(patterns_len);
+        let mut output_pattern_idx = vec![UType::MAX];
+        let patterns_len = patterns.len().clamp(0, (UType::MAX - 1) as usize);
+        let mut pattern_lengths = Vec::<UType>::with_capacity(patterns_len);
 
         // --- Phase 1: Build Trie ---
         for (idx, pattern) in patterns.iter().take(patterns_len).enumerate() {
-            pattern_lengths.push(pattern.as_ref().len());
+            pattern_lengths.push(pattern.as_ref().len() as UType);
             let mut curr = 0;
 
             for &b in pattern.as_ref().iter() {
@@ -66,9 +63,9 @@ impl FastPatternMatcher {
                 // Safety: ALPHABET_SIZE >= 256, and b is an u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE).
                 unsafe {
                     if *trie_nodes.get_unchecked(curr).get_unchecked(b) == 0 {
-                        *trie_nodes.get_unchecked_mut(curr).get_unchecked_mut(b) = trie_nodes.len() as u32;
+                        *trie_nodes.get_unchecked_mut(curr).get_unchecked_mut(b) = trie_nodes.len() as UType;
                         trie_nodes.push([0; ALPHABET_SIZE]);
-                        output_pattern_idx.push(-1);
+                        output_pattern_idx.push(UType::MAX);
                     }
                     curr = *trie_nodes.get_unchecked(curr).get_unchecked(b) as usize;
                 }
@@ -76,7 +73,7 @@ impl FastPatternMatcher {
 
             // Store pattern index at the terminal node
             // Safety: curr is a valid index because it was just pushed or existed in trie_nodes
-            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as IType; }
+            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as UType; }
         }
 
         let num_nodes = trie_nodes.len();
@@ -129,7 +126,7 @@ impl FastPatternMatcher {
                     //    the dictionary link chain is acyclic and will eventually reach the root (node 0).
                     unsafe {
                         *dict_links.get_unchecked_mut(v_idx) =
-                            if *output_pattern_idx.get_unchecked(f_link as usize) != -1 { f_link }
+                            if *output_pattern_idx.get_unchecked(f_link as usize) != UType::MAX { f_link }
                             else { *dict_links.get_unchecked(f_link as usize) };
                     }
 
@@ -165,11 +162,11 @@ impl FastPatternMatcher {
     }
 
     #[inline]
-    pub fn find_all_in<'a>(&'a self, text: &'a str) -> iter_no::MatchIterator<'a> {
+    pub fn find_all_in<'a>(&'a self, text: &'a str) -> iter::MatchIterator<'a> {
         self.find_all_bytes_in(text.as_bytes())
     }
     #[inline]
-    pub fn find_all_overlapping_in<'a>(&'a self, text: &'a str) -> iter::MatchIterator<'a> {
+    pub fn find_all_overlapping_in<'a>(&'a self, text: &'a str) -> iter_ol::MatchIterator<'a> {
         self.find_all_bytes_overlapping_in(text.as_bytes())
     }
     #[inline]
@@ -178,8 +175,8 @@ impl FastPatternMatcher {
     }
 
     #[inline]
-    pub fn find_all_bytes_in<'a>(&'a self, bytes: &'a [u8]) -> iter_no::MatchIterator<'a> {
-        iter_no::MatchIterator {
+    pub fn find_all_bytes_in<'a>(&'a self, bytes: &'a [u8]) -> iter::MatchIterator<'a> {
+        iter::MatchIterator {
             matcher: self,
             bytes,
             current_byte_idx: 0,
@@ -187,8 +184,8 @@ impl FastPatternMatcher {
         }
     }
     #[inline]
-    pub fn find_all_bytes_overlapping_in<'a>(&'a self, bytes: &'a [u8]) -> iter::MatchIterator<'a> {
-        iter::MatchIterator {
+    pub fn find_all_bytes_overlapping_in<'a>(&'a self, bytes: &'a [u8]) -> iter_ol::MatchIterator<'a> {
+        iter_ol::MatchIterator {
             matcher: self,
             bytes,
             current_byte_idx: 0,
