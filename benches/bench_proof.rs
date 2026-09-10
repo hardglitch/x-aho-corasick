@@ -9,7 +9,7 @@ fn bench_proof(c: &mut Criterion) {
     let patterns = vec!["ma", "mama", "cat", "at", "ма", "кошка", "лужа", "каша"];
     let text = "Мама (mama) вела кошку (cat) к луже, а в каше была (was) малина (macatma)!".to_lowercase();
 
-    let ac = AhoCorasick::new(&patterns).expect("Something went wrong");
+    let ac = AhoCorasick::new(&patterns).unwrap();
     let ac_matches = ac.find_iter(&text)
         .map(|mat| (mat.start(), mat.pattern()))
         .collect::<Vec<(usize, PatternID)>>();
