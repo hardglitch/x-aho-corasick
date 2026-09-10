@@ -3,6 +3,7 @@ use std::hint::black_box;
 use std::path::PathBuf;
 use aho_corasick::AhoCorasick;
 use x_aho_corasick::FastPatternMatcher;
+use daachorse::DoubleArrayAhoCorasick;
 
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 fn bench(c: &mut Criterion) {
@@ -31,6 +32,15 @@ fn bench(c: &mut Criterion) {
     group.bench_function("aho-corasick (search)", |b|
         b.iter(|| {
             let matches: Vec<_> = ac.find_overlapping_iter(black_box(&text)).collect();
+            black_box(matches);
+        })
+    );
+
+    // daachorse
+	let pma: DoubleArrayAhoCorasick<u32> = DoubleArrayAhoCorasick::new(&patterns).unwrap();
+    group.bench_function("daachorse (search)", |b|
+        b.iter(|| {
+            let matches: Vec<_> = pma.find_overlapping_iter(black_box(&text)).collect();
             black_box(matches);
         })
     );
