@@ -1,9 +1,11 @@
 mod iter;
 mod iter_no;
+mod ring_buffer;
 #[cfg(test)]
 mod tests;
 
 use std::collections::VecDeque;
+use ring_buffer::RingBuffer;
 
 /// Alphabet size must be at least 256 to cover all possible u8 values.
 const ALPHABET_SIZE: usize = 256; // UTF-8
@@ -191,8 +193,7 @@ impl FastPatternMatcher {
             bytes,
             current_byte_idx: 0,
             current_node: 0,
-            pending_matches: Default::default(),
-            pending_count: 0,
+            pending_matches: RingBuffer::new(),
         }
     }
     #[inline]

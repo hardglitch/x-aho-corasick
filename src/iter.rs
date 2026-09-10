@@ -1,17 +1,12 @@
 use crate::{FastPatternMatcher, Match, ALPHABET_SIZE};
-
-/// BUFFER_SIZE defines the maximum number of nested matches
-/// that can end at the same character.
-const BUFFER_SIZE: usize = 32; // overkill value
+use crate::ring_buffer::RingBuffer;
 
 pub struct MatchIterator<'a> {
     pub(crate) matcher: &'a FastPatternMatcher,
     pub(crate) bytes: &'a [u8],
     pub(crate) current_byte_idx: usize,
     pub(crate) current_node: usize,
-	pub(crate) pending_matches: [Option<Match>; BUFFER_SIZE],
-    pub(crate) pending_count: usize,
-	
+	pub(crate) pending_matches: RingBuffer<Match>,
 }
 impl<'a> Iterator for MatchIterator<'a> {
     type Item = Match;
@@ -27,17 +22,8 @@ impl<'a> Iterator for MatchIterator<'a> {
 
 		loop {
             // 1. If there are matches in the buffer, return the first one.
-			if self.pending_count > 0 {
-                // Safety: pending_count <= BUFFER_SIZE guarantees that index 0 is always valid.
-				let m = unsafe { *self.pending_matches.get_unchecked(0) };
-
-                // Shift the buffer to the left (removing the first element).
-				for i in 0..self.pending_count - 1 {
-                    // Safety: i + 1 is always < pending_count, and thus <= BUFFER_SIZE.
-					unsafe { *self.pending_matches.get_unchecked_mut(i) = *self.pending_matches.get_unchecked(i + 1); }
-				}
-				self.pending_count -= 1;
-				return m;
+			if let Some(m) = self.pending_matches.pop_front() {
+				return Some(m)
 			}
 
             // 2. If the buffer is empty, search for a new byte in the text.
@@ -75,14 +61,9 @@ impl<'a> Iterator for MatchIterator<'a> {
                     // ensuring the result is always a non-negative usize.
                     let pos = i + 1 - len;
 
-					if self.pending_count < BUFFER_SIZE {
-                        // Safety: pending_count is checked before writing, and the index is always < BUFFER_SIZE.
-						unsafe {
-							*self.pending_matches.get_unchecked_mut(self.pending_count) = Some(Match::new(pos, idx));
-						}
-						self.pending_count += 1;
-						found_match = true;
-					}
+					let m = Match::new(pos, idx);
+					self.pending_matches.push_back(m);
+					found_match = true;
 				}
 
                 // Jump to next pattern using dictionary links.
