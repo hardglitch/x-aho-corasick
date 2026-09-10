@@ -1,6 +1,6 @@
 [package]
 name = "x-aho-corasick"
-version = "0.4.5"
+version = "0.5.0"
 edition = "2024"
 authors = ["hardglitch"]
 
@@ -13,7 +13,8 @@ panic = "warn"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
-aho-corasick = "1.1.4"
+daachorse = "5.0.0"
+aho-corasick = "1.1.5"
 
 [[bench]]
 name = "bench_proof"
@@ -25,4 +26,12 @@ harness = false
 
 [[bench]]
 name = "bench_ol"
+harness = false
+
+[[bench]]
+name = "bench_hardcore"
+harness = false
+
+[[bench]]
+name = "bench_hardcore_ol"
 harness = false
