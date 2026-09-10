@@ -1,6 +1,7 @@
 /// BUFFER_SIZE defines the maximum number of nested matches
 /// that can end at the same character.
-const BUFFER_SIZE: usize = 32; // Overkill value. Must be 2^n for bitwise masking to work.
+/// Must be 2^n for bitwise masking to work.
+const BUFFER_SIZE: usize = 32; // Overkill value for the most realistic tasks.
 
 pub(crate) struct RingBuffer<T> {
     pending_matches: [std::mem::MaybeUninit<T>; BUFFER_SIZE],
@@ -18,12 +19,6 @@ impl<T> RingBuffer<T> {
         }
     }
 	
-	#[allow(dead_code)]
-    #[inline(always)]
-    pub(crate) fn len(&self) -> usize {
-        self.count
-    }
-
 	#[inline(always)]
 	pub(crate) fn push_back(&mut self, value: T) {
 		if self.count < BUFFER_SIZE {
@@ -92,6 +87,7 @@ impl<T> Drop for RingBuffer<T> {
 }
 
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -102,7 +98,7 @@ mod tests {
 		buf.push_back("string1".to_owned());
 		buf.push_back("string2".to_owned());
 		
-		assert_eq!(buf.len(), 2);
+		assert_eq!(buf.count, 2);
 		
 		let s1 = buf.pop_front();
 		assert_eq!(s1, Some("string1".to_owned()));
@@ -112,7 +108,7 @@ mod tests {
 
 		let s3 = buf.pop_front();
 		assert_eq!(s3, None);
-		assert_eq!(buf.len(), 0);
+		assert_eq!(buf.count, 0);
 	}
 	
 	#[test]
@@ -120,12 +116,12 @@ mod tests {
         let mut buf = RingBuffer::new();
         buf.push_back("a".to_string());
         buf.push_back("b".to_string());
-        assert_eq!(buf.len(), 2);
+        assert_eq!(buf.count, 2);
 
         for i in 0..40 {
             buf.push_back(i.to_string());
         }
-        assert_eq!(buf.len(), 32);
+        assert_eq!(buf.count, 32);
 
         let first = buf.pop_front().unwrap();
         assert_eq!(first, "8");
