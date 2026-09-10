@@ -11,7 +11,7 @@ use ring_buffer::RingBuffer;
 const ALPHABET_SIZE: usize = 256; // UTF-8
 
 /// This one uses u32 for realistic tasks (to save memory),
-/// but you can use other types (for your own risk)
+/// but you can use other types
 /// pattern_lengths < UType
 /// pattern_length <= UType
 type UType = u32; // Max pattern number = UType::MAX - 1
