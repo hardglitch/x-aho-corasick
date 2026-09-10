@@ -29,7 +29,7 @@ fn bench_proof(c: &mut Criterion) {
     assert_eq!(ac_matches, test_data);
 	
 	
-	let pma = DoubleArrayAhoCorasick::new(&patterns).expect("Something went wrong");
+	let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
 	let pma_matches = pma.find_iter(&text)
         .map(|mat| (mat.start(), mat.value()))
         .collect::<Vec<(usize, usize)>>();

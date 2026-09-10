@@ -28,7 +28,7 @@ fn bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("Comparison");
 
     // aho-corasick
-    let ac = AhoCorasick::new(&patterns).expect("Something went wrong");
+    let ac = AhoCorasick::new(&patterns).unwrap();
     group.bench_function("aho-corasick (search)", |b|
         b.iter(|| {
             let matches: Vec<_> = ac.find_iter(black_box(&text)).collect();
