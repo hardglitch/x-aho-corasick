@@ -34,9 +34,9 @@ impl Match {
     }
 }
 
-/// Production-grade Aho-Corasick implementation.
-/// Optimized for extreme-speed scanning of large texts with massive pattern sets,
-/// but at the cost of increased memory overhead.
+/// This Aho-Corasick implementation optimized for extreme-speed scanning
+/// of large texts with massive pattern sets,
+/// but at the cost of increased memory overhead (uses DFA).
 #[derive(Debug)]
 pub struct FastPatternMatcher {
     /// Flattened transition table: [node_index * ALPHABET_SIZE + byte] -> next_node_index
