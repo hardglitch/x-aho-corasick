@@ -7,10 +7,10 @@ use daachorse::DoubleArrayAhoCorasick;
 
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 fn bench(c: &mut Criterion) {
-    let p = PathBuf::from("benches").join("text_hardcore.txt");
+    let p = PathBuf::from("benches").join("text_hardcore.txt_big");
     let text = std::fs::read_to_string(&p).expect("File not found").to_lowercase();
 
-    let p = PathBuf::from("benches").join("patterns_hardcore.txt");
+    let p = PathBuf::from("benches").join("patterns_hardcore.txt_big");
     let content = std::fs::read(p).expect("File not found");
     let patterns: Vec<&[u8]> =
         content
