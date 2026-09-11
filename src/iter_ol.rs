@@ -1,4 +1,4 @@
-use crate::{FastPatternMatcher, Match, ALPHABET_SIZE};
+use crate::{FastPatternMatcher, UType, Match, ALPHABET_SIZE};
 use crate::ring_buffer::RingBuffer;
 
 pub struct MatchIterator<'a> {
@@ -33,8 +33,8 @@ impl<'a> Iterator for MatchIterator<'a> {
 
             let i = self.current_byte_idx;
 
-            // Safety: The loop condition 'self.current_byte_idx < self.text_bytes.len()'
-            // guarantees that the index is always within bounds of the text_bytes slice.
+            // Safety: The loop condition 'self.current_byte_idx < self.bytes.len()'
+            // guarantees that the index is always within bounds of the bytes slice.
             let b = unsafe { *self.bytes.get_unchecked(i) as usize };
 
             // Go to the next node (DFA transition)
@@ -50,15 +50,15 @@ impl<'a> Iterator for MatchIterator<'a> {
             while temp > 0 {
                 // Safety: temp is a node index from transitions, so temp < num_nodes.
                 let p_idx = unsafe { *output_pattern_idx.get_unchecked(temp) };
-                if p_idx != -1 {
+                if p_idx != UType::MAX {
                     let idx = p_idx as usize;
 
                     // Safety: idx is an index into pattern_lengths, which was filled during construction.
                     let len = unsafe { *pattern_lengths.get_unchecked(idx) };
 
                     // Safety: The variable i is the current index in the text.
-                    // Since we only trigger a match when the last val characters of the processed text match the pattern,
-                    // it is mathematically guaranteed that i + 1 >= val,
+                    // Since we only trigger a match when the last `len` characters of the processed text match the pattern,
+                    // it is mathematically guaranteed that i + 1 >= len,
                     // ensuring the result is always a non-negative usize.
                     let pos = i + 1 - len;
 

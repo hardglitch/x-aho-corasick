@@ -10,19 +10,18 @@ use ring_buffer::RingBuffer;
 /// Alphabet size must be at least 256 to cover all possible u8 values.
 const ALPHABET_SIZE: usize = 256; // UTF-8
 
-/// This one uses u32/i32 for realistic tasks (to save memory),
-/// but you can use u16/i16 for small sets.
+/// This one uses u32 for realistic tasks (to save memory),
+/// but you can use u16 for small sets.
 /// 
 /// If ALPHABET_SIZE = 256 then:
-///   u32/i32 -> max patterns = 16,777,215
-///   u16/i16 -> max patterns = 255
+///   u32 -> max patterns = 16,777,215
+///   u16 -> max patterns = 255
 type UType = u32;
-type IType = i32;
 
 #[inline(always)]
-const fn max_patterns() -> IType {
-    // (UType::MAX - 256) / 256+ < IType::MAX - always valid
-    ((UType::MAX - u8::MAX as UType) / ALPHABET_SIZE as UType) as IType
+const fn max_patterns() -> UType {
+    // (UType::MAX - 256) / 256+ < UType::MAX - always valid
+    (UType::MAX - u8::MAX as UType) / ALPHABET_SIZE as UType
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -32,7 +31,7 @@ pub struct Match {
 }
 impl Match {
     #[inline]
-    pub fn new(start_pos: usize, pattern_idx: IType) -> Self {
+    pub fn new(start_pos: usize, pattern_idx: UType) -> Self {
         Self {
             start_pos,
             pattern_idx: pattern_idx as usize
@@ -55,13 +54,13 @@ impl Match {
 pub struct FastPatternMatcher {
     transitions: Vec<UType>,
     dict_links: Vec<UType>,
-    output_pattern_idx: Vec<IType>,
+    output_pattern_idx: Vec<UType>,
     pattern_lengths: Vec<usize>,
 }
 impl FastPatternMatcher {
     pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
         let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
-        let mut output_pattern_idx: Vec<IType> = vec![-1];
+        let mut output_pattern_idx: Vec<UType> = vec![UType::MAX];
         let pattern_number = patterns.len().clamp(0, max_patterns() as usize);
         let mut pattern_lengths = Vec::<usize>::with_capacity(pattern_number);
 
@@ -77,7 +76,7 @@ impl FastPatternMatcher {
                     if *trie_nodes.get_unchecked(curr).get_unchecked(b) == 0 {
                         *trie_nodes.get_unchecked_mut(curr).get_unchecked_mut(b) = trie_nodes.len() as UType;
                         trie_nodes.push([0; ALPHABET_SIZE]);
-                        output_pattern_idx.push(-1);
+                        output_pattern_idx.push(UType::MAX);
                     }
                     curr = *trie_nodes.get_unchecked(curr).get_unchecked(b) as usize;
                 }
@@ -85,7 +84,7 @@ impl FastPatternMatcher {
 
             // Store pattern index at the terminal node
             // Safety: curr is a valid index because it was just pushed or existed in trie_nodes
-            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as IType; }
+            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as UType; }
         }
 
         let num_nodes = trie_nodes.len();
@@ -138,7 +137,7 @@ impl FastPatternMatcher {
                     //    the dictionary link chain is acyclic and will eventually reach the root (node 0).
                     unsafe {
                         *dict_links.get_unchecked_mut(v_idx) =
-                            if *output_pattern_idx.get_unchecked(f_link as usize) != -1 { f_link }
+                            if *output_pattern_idx.get_unchecked(f_link as usize) != UType::MAX { f_link }
                             else { *dict_links.get_unchecked(f_link as usize) };
                     }
 
