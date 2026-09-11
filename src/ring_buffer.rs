@@ -1,7 +1,7 @@
 /// BUFFER_SIZE defines the maximum number of nested matches
 /// that can end at the same character.
 /// Must be 2^n for bitwise masking to work.
-const BUFFER_SIZE: usize = 32; // Overkill value for the most realistic tasks.
+const BUFFER_SIZE: usize = 256; // Overkill value for the most realistic tasks.
 
 pub(crate) struct RingBuffer<T> {
     pending_matches: [std::mem::MaybeUninit<T>; BUFFER_SIZE],
@@ -11,8 +11,6 @@ pub(crate) struct RingBuffer<T> {
 impl<T> RingBuffer<T> {
 	pub(crate) fn new() -> Self {
         Self {
-			// Safety: We are using MaybeUninit, so the uninitialized memory 
-            // is valid for the purpose of being a buffer.
             pending_matches: [const {std::mem::MaybeUninit::uninit()}; BUFFER_SIZE],
             head: 0,
             count: 0,
@@ -118,12 +116,12 @@ mod tests {
         buf.push_back("b".to_string());
         assert_eq!(buf.count, 2);
 
-        for i in 0..40 {
+        for i in 0..BUFFER_SIZE + 10 {
             buf.push_back(i.to_string());
         }
-        assert_eq!(buf.count, 32);
+        assert_eq!(buf.count, BUFFER_SIZE);
 
         let first = buf.pop_front().unwrap();
-        assert_eq!(first, "8");
+        assert_eq!(first, "10");
     }
 }
