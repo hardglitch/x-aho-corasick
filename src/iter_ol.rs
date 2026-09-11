@@ -21,12 +21,12 @@ impl<'a> Iterator for MatchIterator<'a> {
         let pattern_lengths = &self.matcher.pattern_lengths;
 
 		loop {
-            // 1. If there are matches in the buffer, return the first one.
+            // 1. If there are matches in the buffer, return the next one.
 			if let Some(m) = self.pending_matches.pop_front() {
 				return Some(m)
 			}
 
-            // 2. If the buffer is empty, search for a new byte in the text.
+            // 2. If the buffer is empty and we have reached the end of the text, stop iteration.
             if self.current_byte_idx >= self.bytes.len() {
                 return None; // End of the text
             }
