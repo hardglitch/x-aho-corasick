@@ -10,7 +10,7 @@ An eXtra-performance implementation of the **Aho-Corasick algorithm** in Rust.
 ### Normal bench (search all)
 *288 unique patterns (2..=30 bytes, multi-language) in 26.5 kb text (2871 words, multi-language)*
 
-| Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | `x-aho-corasick` |
+| Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | [x-aho-corasick](https://github.com/hardglitch/x-aho-corasick) |
 | :--- | :---: | :---: | :---: |
 | **Non-overlapping** | x1.00 | x1.30 | **x1.98x** |
 | **Overlapping** | x1.00 | x1.33 | **x1.49x** |
@@ -18,14 +18,14 @@ An eXtra-performance implementation of the **Aho-Corasick algorithm** in Rust.
 ### Hardcore bench (search all)
 *561k unique patterns (2..=122 bytes, multi-language) in 95.4 Mb text (10_582_506 words, multi-language)*
 
-| Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | `x-aho-corasick` |
+| Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | [x-aho-corasick](https://github.com/hardglitch/x-aho-corasick) |
 | :--- | :---: | :---: | :---: |
 | **Non-overlapping** | x1.00 | x2.03 | **x2.36x** |
 | **Overlapping** | x1.00 | **x1.67** | x1.34x |
 
-## Coverage
-- **cargo miri** - 100% clean
-- **[cargo fuzz](https://github.com/rust-fuzz/cargo-fuzz)** - 100% clean
+## Reliability & Coverage
+- **Memory Safety**: Verified with `cargo miri` (100% clean).
+- **Robustness**: Fuzzed with [`cargo fuzz`](https://github.com/rust-fuzz/cargo-fuzz) (100% clean).
 
 ## Installation
 
@@ -57,7 +57,7 @@ fn main() {
 }
 ```
 
-If you need an overlapping then use overlapping version:
+If you need overlapping matches, use the overlapping version:
 
 ```rust
 use x_aho_corasick::FastPatternMatcher;
@@ -97,4 +97,4 @@ fn main() {
 - **Alphabet**: Optimized specifically for `u8` (UTF-8) input.
 
 ## License
-MIT
+  * [MIT](LICENSE)
