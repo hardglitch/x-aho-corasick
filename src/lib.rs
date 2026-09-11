@@ -10,29 +10,31 @@ use ring_buffer::RingBuffer;
 /// Alphabet size must be at least 256 to cover all possible u8 values.
 const ALPHABET_SIZE: usize = 256; // UTF-8
 
-/// This one uses u32 for realistic tasks (to save memory),
+/// This one uses u32/i32 for realistic tasks (to save memory),
 /// but you can use other types
-/// pattern_lengths < UType
-/// pattern_length <= UType
-type UType = u32; // Max pattern number = UType::MAX - 1
+type UType = u32;
+type IType = i32; // Max pattern number = IType::MAX
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Match {
-    start_pos: UType,
-    pattern_idx: UType,
+    start_pos: usize,
+    pattern_idx: usize,
 }
 impl Match {
     #[inline]
-    pub fn new(start_pos: UType, pattern_idx: UType) -> Self {
-        Self { start_pos, pattern_idx }
+    pub fn new(start_pos: usize, pattern_idx: usize) -> Self {
+        Self {
+            start_pos,
+            pattern_idx: pattern_idx.clamp(0, IType::MAX as usize)
+        }
     }
     #[inline]
     pub fn start_pos(&self) -> usize {
-        self.start_pos as usize
+        self.start_pos
     }
     #[inline]
     pub fn pattern_index(&self) -> usize {
-        self.pattern_idx as usize
+        self.pattern_idx
     }
 }
 
@@ -41,21 +43,21 @@ impl Match {
 /// but at the cost of increased memory overhead (uses DFA).
 #[derive(Debug)]
 pub struct FastPatternMatcher {
-    transitions: Vec<UType>,
+    transitions: Vec<UType>, // Upper bound = 16,777,215 for u32 ( UB = (UType::MAX - u8::MAX) / ALPHABET_SIZE )
     dict_links: Vec<UType>,
-    output_pattern_idx: Vec<UType>,
-    pattern_lengths: Vec<UType>,
+    output_pattern_idx: Vec<IType>, // Max pattern number = IType::MAX
+    pattern_lengths: Vec<usize>,
 }
 impl FastPatternMatcher {
     pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
         let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
-        let mut output_pattern_idx = vec![UType::MAX];
-        let patterns_len = patterns.len().clamp(0, (UType::MAX - 1) as usize);
-        let mut pattern_lengths = Vec::<UType>::with_capacity(patterns_len);
+        let mut output_pattern_idx: Vec<IType> = vec![-1];
+        let patterns_len = patterns.len().clamp(0, IType::MAX as usize);
+        let mut pattern_lengths = Vec::<usize>::with_capacity(patterns_len);
 
         // --- Phase 1: Build Trie ---
         for (idx, pattern) in patterns.iter().take(patterns_len).enumerate() {
-            pattern_lengths.push(pattern.as_ref().len() as UType);
+            pattern_lengths.push(pattern.as_ref().len());
             let mut curr = 0;
 
             for &b in pattern.as_ref().iter() {
@@ -65,7 +67,7 @@ impl FastPatternMatcher {
                     if *trie_nodes.get_unchecked(curr).get_unchecked(b) == 0 {
                         *trie_nodes.get_unchecked_mut(curr).get_unchecked_mut(b) = trie_nodes.len() as UType;
                         trie_nodes.push([0; ALPHABET_SIZE]);
-                        output_pattern_idx.push(UType::MAX);
+                        output_pattern_idx.push(-1);
                     }
                     curr = *trie_nodes.get_unchecked(curr).get_unchecked(b) as usize;
                 }
@@ -73,7 +75,7 @@ impl FastPatternMatcher {
 
             // Store pattern index at the terminal node
             // Safety: curr is a valid index because it was just pushed or existed in trie_nodes
-            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as UType; }
+            unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as IType; }
         }
 
         let num_nodes = trie_nodes.len();
@@ -126,7 +128,7 @@ impl FastPatternMatcher {
                     //    the dictionary link chain is acyclic and will eventually reach the root (node 0).
                     unsafe {
                         *dict_links.get_unchecked_mut(v_idx) =
-                            if *output_pattern_idx.get_unchecked(f_link as usize) != UType::MAX { f_link }
+                            if *output_pattern_idx.get_unchecked(f_link as usize) != -1 { f_link }
                             else { *dict_links.get_unchecked(f_link as usize) };
                     }
 
