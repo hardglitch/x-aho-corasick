@@ -22,18 +22,18 @@ pub struct Match {
 }
 impl Match {
     #[inline]
-    pub fn new(start_pos: usize, pattern_idx: usize) -> Self {
+    pub fn new(start_pos: usize, pattern_idx: IType) -> Self {
         Self {
             start_pos,
-            pattern_idx: pattern_idx.clamp(0, IType::MAX as usize)
+            pattern_idx: pattern_idx as usize
         }
     }
     #[inline]
-    pub fn start_pos(&self) -> usize {
+    pub fn start(&self) -> usize {
         self.start_pos
     }
     #[inline]
-    pub fn pattern_index(&self) -> usize {
+    pub fn pattern(&self) -> usize {
         self.pattern_idx
     }
 }
@@ -52,11 +52,11 @@ impl FastPatternMatcher {
     pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
         let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
         let mut output_pattern_idx: Vec<IType> = vec![-1];
-        let patterns_len = patterns.len().clamp(0, IType::MAX as usize);
-        let mut pattern_lengths = Vec::<usize>::with_capacity(patterns_len);
+        let pattern_number = patterns.len().clamp(0, IType::MAX as usize);
+        let mut pattern_lengths = Vec::<usize>::with_capacity(pattern_number);
 
         // --- Phase 1: Build Trie ---
-        for (idx, pattern) in patterns.iter().take(patterns_len).enumerate() {
+        for (idx, pattern) in patterns.iter().take(pattern_number).enumerate() {
             pattern_lengths.push(pattern.as_ref().len());
             let mut curr = 0;
 

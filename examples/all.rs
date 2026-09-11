@@ -22,6 +22,6 @@ fn main() {
     // Start is a position in the byte array (text.as_bytes()). It's not a char position in the text
     for (n, m) in all_matches.enumerate() {
         assert_eq!(test_data.get(n), Some(&m));
-        println!("Found '{}' at position {}", patterns[m.pattern_index()], m.start_pos());
+        println!("Found '{}' at position {}", patterns[m.pattern()], m.start());
     }
 }
