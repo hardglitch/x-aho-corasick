@@ -11,9 +11,19 @@ use ring_buffer::RingBuffer;
 const ALPHABET_SIZE: usize = 256; // UTF-8
 
 /// This one uses u32/i32 for realistic tasks (to save memory),
-/// but you can use other types
+/// but you can use u16/i16 for small sets.
+/// 
+/// If ALPHABET_SIZE = 256 then:
+///   u32/i32 -> max patterns = 16,777,215
+///   u16/i16 -> max patterns = 255
 type UType = u32;
-type IType = i32; // Max pattern number = IType::MAX
+type IType = i32;
+
+#[inline(always)]
+const fn max_patterns() -> IType {
+    // (UType::MAX - 256) / 256+ < IType::MAX - always valid
+    ((UType::MAX - u8::MAX as UType) / ALPHABET_SIZE as UType) as IType
+}
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Match {
@@ -43,16 +53,16 @@ impl Match {
 /// but at the cost of increased memory overhead (uses DFA).
 #[derive(Debug)]
 pub struct FastPatternMatcher {
-    transitions: Vec<UType>, // Upper bound = 16,777,215 for u32 ( UB = (UType::MAX - u8::MAX) / ALPHABET_SIZE )
+    transitions: Vec<UType>,
     dict_links: Vec<UType>,
-    output_pattern_idx: Vec<IType>, // Max pattern number = IType::MAX
+    output_pattern_idx: Vec<IType>,
     pattern_lengths: Vec<usize>,
 }
 impl FastPatternMatcher {
     pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
         let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
         let mut output_pattern_idx: Vec<IType> = vec![-1];
-        let pattern_number = patterns.len().clamp(0, IType::MAX as usize);
+        let pattern_number = patterns.len().clamp(0, max_patterns() as usize);
         let mut pattern_lengths = Vec::<usize>::with_capacity(pattern_number);
 
         // --- Phase 1: Build Trie ---
