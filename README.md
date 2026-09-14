@@ -97,4 +97,4 @@ fn main() {
 - **Alphabet**: Optimized specifically for `u8` (UTF-8) input.
 
 ## License
-  * [MIT](LICENSE)
+  * This project is licensed under the [MIT license](LICENSE).
