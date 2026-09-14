@@ -35,3 +35,9 @@ harness = false
 [[bench]]
 name = "bench_hardcore_ol"
 harness = false
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "*", features = ["derive"], optional = true }
