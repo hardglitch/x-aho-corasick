@@ -1,5 +1,5 @@
 mod iter_ol;
-mod iter;
+pub mod iter;
 mod ring_buffer;
 #[cfg(test)]
 mod tests;
