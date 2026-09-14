@@ -135,10 +135,10 @@ fn test_overlapping_nested_patterns() {
     results.sort_by_key(|m| m.start());
 
     assert_eq!(results.len(), 4);
-    assert_eq!(results[0].pattern(), 0); // abcde
-    assert_eq!(results[1].pattern(), 1); //  bcd
-    assert_eq!(results[2].pattern(), 2); //   cd
-    assert_eq!(results[3].pattern(), 3); //    d
+    assert_eq!(results[0].pattern_index(), 0); // abcde
+    assert_eq!(results[1].pattern_index(), 1); //  bcd
+    assert_eq!(results[2].pattern_index(), 2); //   cd
+    assert_eq!(results[3].pattern_index(), 3); //    d
 }
 
 #[test]

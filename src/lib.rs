@@ -42,7 +42,7 @@ impl Match {
         self.start_pos
     }
     #[inline]
-    pub fn pattern(&self) -> usize {
+    pub fn pattern_index(&self) -> usize {
         self.pattern_idx
     }
 }

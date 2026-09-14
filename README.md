@@ -52,7 +52,7 @@ fn main() {
 
     let matches = matcher.find_all_in(text); // returns iterator
     for m in matches {
-        println!("Found '{}' at position {}", patterns[m.pattern()], m.start());
+        println!("Found '{}' at position {}", patterns[m.pattern_index()], m.start());
     }
 }
 ```
@@ -69,7 +69,7 @@ fn main() {
 
     let matches = matcher.find_all_overlapping_in(text); // returns iterator
     for m in matches {
-        println!("Found '{}' at position {}", patterns[m.pattern()], m.start());
+        println!("Found '{}' at position {}", patterns[m.pattern_index()], m.start());
     }
 }
 ```
@@ -86,7 +86,7 @@ fn main() {
     let text = "The quick brown fox jumps over the lazy dog";
 
     if let Some(m) = matcher.find_any_in(text) {
-        println!("Found '{}' at position {}", patterns[m.pattern()], m.start());
+        println!("Found '{}' at position {}", patterns[m.pattern_index()], m.start());
     }
 }
 ```

@@ -11,6 +11,6 @@ fn main() {
     // Start is a position in the byte array (text.as_bytes()). It's not a char position in the text
 	assert_eq!(test_data, one_match);
     if let Some(m) = one_match {
-        println!("Found '{}' at position {}", patterns[m.pattern()], m.start());
+        println!("Found '{}' at position {}", patterns[m.pattern_index()], m.start());
     }
 }
