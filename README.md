@@ -16,7 +16,7 @@ An eXtra-performance implementation of the **Aho-Corasick algorithm** in Rust.
 | **Overlapping** | x1.00 | x1.33 | **x1.49x** |
 
 ### Hardcore bench (search all)
-*561k unique patterns (2..=122 bytes, multi-language) in 95.4 Mb text (10_582_506 words, multi-language)*
+*561k unique patterns (2..=122 bytes, multi-language) in 95.4 MB text (10_582_506 words, multi-language)*
 
 | Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | [x-aho-corasick](https://github.com/hardglitch/x-aho-corasick) |
 | :--- | :---: | :---: | :---: |
