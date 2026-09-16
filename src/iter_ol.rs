@@ -1,6 +1,7 @@
 use crate::{FastPatternMatcher, UType, Match, ALPHABET_SIZE};
 use crate::ring_buffer::RingBuffer;
 
+/// An iterator that yields all matches (including overlapping ones) found in a byte slice.
 pub struct MatchIterator<'a> {
     pub(crate) matcher: &'a FastPatternMatcher,
     pub(crate) bytes: &'a [u8],
@@ -11,6 +12,7 @@ pub struct MatchIterator<'a> {
 impl<'a> Iterator for MatchIterator<'a> {
     type Item = Match;
 
+    /// Returns the next match (potentially overlapping with the previous one).
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
 
@@ -48,8 +50,9 @@ impl<'a> Iterator for MatchIterator<'a> {
             unsafe { self.current_node = *transitions.get_unchecked(idx) as usize; }
 
 			let mut found_match = false;
-
             let mut temp = self.current_node;
+
+            // Follow dictionary links to find all overlapping patterns ending at this position
             while temp > 0 {
                 // SAFETY: temp is a valid node index in the trie (0 <= temp < num_nodes).
                 let p_idx = unsafe { *output_pattern_idx.get_unchecked(temp) };
@@ -83,6 +86,7 @@ impl<'a> Iterator for MatchIterator<'a> {
             // because self.current_byte_idx < self.bytes.len()
             self.current_byte_idx = unsafe { self.current_byte_idx.unchecked_add(1) };
 
+            // If we found matches, continue the loop to return them via pop_front in next call
 			if found_match { continue; }
         }
     }

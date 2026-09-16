@@ -25,12 +25,14 @@ const fn max_patterns() -> UType {
     (UType::MAX - u8::MAX as UType) / ALPHABET_SIZE as UType
 }
 
+/// Represents a single match found in the text.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Match {
     start_pos: usize,
     pattern_idx: usize,
 }
 impl Match {
+    /// Creates a new `Match` instance.
     #[inline]
     pub fn new(start_pos: usize, pattern_idx: UType) -> Self {
         Self {
@@ -38,10 +40,14 @@ impl Match {
             pattern_idx: pattern_idx as usize
         }
     }
+
+    /// Returns the starting byte index of the match.
     #[inline]
     pub fn start(&self) -> usize {
         self.start_pos
     }
+
+    /// Returns the index of the matched pattern in the original patterns list.
     #[inline]
     pub fn pattern_index(&self) -> usize {
         self.pattern_idx
@@ -61,6 +67,7 @@ macro_rules! fast_pattern_matcher {
             pattern_lengths: Vec<usize>,
         }
         impl FastPatternMatcher {
+            /// Constructs a new `FastPatternMatcher` from a slice of patterns.
             pub fn new<T: AsRef<[u8]>>(patterns: &[T]) -> Self {
                 let mut trie_nodes = vec![[0; ALPHABET_SIZE]]; // Root node
                 let mut output_pattern_idx: Vec<UType> = vec![UType::MAX];
@@ -188,19 +195,25 @@ macro_rules! fast_pattern_matcher {
                 }
             }
 
+            /// Finds all non-overlapping matches in a string slice.
             #[inline]
             pub fn find_all_in<'a>(&'a self, text: &'a str) -> iter::MatchIterator<'a> {
                 self.find_all_bytes_in(text.as_bytes())
             }
+
+            /// Finds all overlapping matches in a string slice.
             #[inline]
             pub fn find_all_overlapping_in<'a>(&'a self, text: &'a str) -> iter_ol::MatchIterator<'a> {
                 self.find_all_bytes_overlapping_in(text.as_bytes())
             }
+
+            /// Finds the first non-overlapping match in a string slice.
             #[inline]
             pub fn find_any_in<'a>(&'a self, text: &'a str) -> Option<Match> {
                 self.find_all_bytes_in(text.as_bytes()).next()
             }
 
+            /// Finds all non-overlapping matches in a byte slice.
             #[inline]
             pub fn find_all_bytes_in<'a>(&'a self, bytes: &'a [u8]) -> iter::MatchIterator<'a> {
                 iter::MatchIterator {
@@ -210,6 +223,8 @@ macro_rules! fast_pattern_matcher {
                     current_node: 0,
                 }
             }
+
+            /// Finds all overlapping matches in a byte slice.
             #[inline]
             pub fn find_all_bytes_overlapping_in<'a>(&'a self, bytes: &'a [u8]) -> iter_ol::MatchIterator<'a> {
                 iter_ol::MatchIterator {
@@ -220,6 +235,8 @@ macro_rules! fast_pattern_matcher {
                     pending_matches: RingBuffer::new(),
                 }
             }
+
+            /// Finds the first match in a byte slice.
             #[inline]
             pub fn find_any_byte_in<'a>(&'a self, bytes: &'a [u8]) -> Option<Match> {
                 self.find_all_bytes_in(bytes).next()

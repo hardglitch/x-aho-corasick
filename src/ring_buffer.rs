@@ -3,12 +3,14 @@
 /// Must be 2^n for bitwise masking to work.
 const BUFFER_SIZE: usize = 256; // Overkill value for the most realistic tasks.
 
+/// A fixed-capacity ring buffer optimized for storing match results.
 pub(crate) struct RingBuffer<T> {
     pending_matches: [std::mem::MaybeUninit<T>; BUFFER_SIZE],
     head: usize,
     count: usize,
 }
 impl<T> RingBuffer<T> {
+    /// Creates a new, empty `RingBuffer`.
 	pub(crate) fn new() -> Self {
         Self {
             pending_matches: [const {std::mem::MaybeUninit::uninit()}; BUFFER_SIZE],
@@ -16,7 +18,10 @@ impl<T> RingBuffer<T> {
             count: 0,
         }
     }
-	
+
+
+    /// Adds an item to the back of the buffer.
+    /// If the buffer is full, it overwrites the oldest element.
 	#[inline(always)]
 	pub(crate) fn push_back(&mut self, value: T) {
 		if self.count < BUFFER_SIZE {
@@ -51,7 +56,10 @@ impl<T> RingBuffer<T> {
             self.head = unsafe { (self.head.unchecked_add(1)) & (BUFFER_SIZE.unchecked_sub(1)) };
 		}
 	}
-	
+
+
+    /// Removes and returns the first item from the front of the buffer.
+    /// Returns `None` if the buffer is empty.
     #[inline(always)]
     pub(crate) fn pop_front(&mut self) -> Option<T> {
         if self.count == 0 { None }
@@ -77,6 +85,7 @@ impl<T> RingBuffer<T> {
 }
 
 impl<T> Drop for RingBuffer<T> {
+    /// Drops all remaining elements in the buffer.
     fn drop(&mut self) {
         let mut i = 0;
         while i < self.count {
