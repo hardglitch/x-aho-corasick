@@ -33,7 +33,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-# planned: x-aho-corasick = "0.5.1"
+# planned: x-aho-corasick = "0.5"
 x-aho-corasick = { git = "https://github.com/hardglitch/x-aho-corasick.git" }
 ```
 
