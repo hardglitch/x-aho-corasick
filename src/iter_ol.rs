@@ -33,34 +33,36 @@ impl<'a> Iterator for MatchIterator<'a> {
 
             let i = self.current_byte_idx;
 
-            // Safety: The loop condition 'self.current_byte_idx < self.bytes.len()'
+            // SAFETY: The loop condition 'self.current_byte_idx < self.bytes.len()'
             // guarantees that the index is always within bounds of the bytes slice.
             let b = unsafe { *self.bytes.get_unchecked(i) as usize };
 
             // Go to the next node (DFA transition)
-            // Safety: self.current_node is always a value from transitions, which are indices < num_nodes.
+            // SAFETY: self.current_node is always a value from transitions, which are indices < num_nodes.
             // b is u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE),
             // thus idx < num_nodes * 256 (minimal ALPHABET_SIZE).
-            let idx = self.current_node * ALPHABET_SIZE + b;
+            // usize::MAX < u32::MAX * (u8::MAX..u32::MAX)
+            let idx = unsafe { self.current_node.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
             unsafe { self.current_node = *transitions.get_unchecked(idx) as usize; }
 
 			let mut found_match = false;
 
             let mut temp = self.current_node;
             while temp > 0 {
-                // Safety: temp is a node index from transitions, so temp < num_nodes.
+                // SAFETY: temp is a node index from transitions, so temp < num_nodes.
                 let p_idx = unsafe { *output_pattern_idx.get_unchecked(temp) };
                 if p_idx != UType::MAX {
                     let idx = p_idx as usize;
 
-                    // Safety: idx is an index into pattern_lengths, which was filled during construction.
+                    // SAFETY: idx is an index into pattern_lengths, which was filled during construction.
                     let len = unsafe { *pattern_lengths.get_unchecked(idx) };
 
-                    // Safety: The variable i is the current index in the text.
+                    // SAFETY: The variable i is the current index in the text.
                     // Since we only trigger a match when the last `len` characters of the processed text match the pattern,
                     // it is mathematically guaranteed that i + 1 >= len,
                     // ensuring the result is always a non-negative usize.
-                    let pos = i + 1 - len;
+                    // i + 1 <= usize::MAX because i < self.bytes.len()
+                    let pos = unsafe { i.unchecked_add(1).unchecked_sub(len) };
 
 					let m = Match { start_pos: pos, pattern_idx: idx };
 					self.pending_matches.push_back(m);
@@ -68,14 +70,16 @@ impl<'a> Iterator for MatchIterator<'a> {
 				}
 
                 // Jump to next pattern using dictionary links.
-                // Safety: temp is always a valid node index (< num_nodes) because
+                // SAFETY: temp is always a valid node index (< num_nodes) because
                 // all values in dict_links are either failure links or results of
                 // previous dict_link lookups. The loop terminates because
                 // dict_links always points to a node with a smaller depth.
                 temp = unsafe { *dict_links.get_unchecked(temp) as usize };
             }
 
-            self.current_byte_idx += 1;
+            // SAFETY: self.current_byte_idx + 1 <= usize::MAX
+            // because self.current_byte_idx < self.bytes.len()
+            self.current_byte_idx = unsafe { self.current_byte_idx.unchecked_add(1) };
 
 			if found_match { continue; }
         }

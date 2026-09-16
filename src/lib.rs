@@ -7,7 +7,7 @@ mod tests;
 use std::collections::VecDeque;
 use ring_buffer::RingBuffer;
 
-/// Alphabet size must be at least 256 to cover all possible u8 values.
+/// Alphabet size must be 2^8..=2^32 (UTF-8, UTF-16, UTF-32).
 const ALPHABET_SIZE: usize = 256; // UTF-8
 
 /// This one uses u32 for realistic tasks (to save memory),
@@ -73,7 +73,7 @@ macro_rules! fast_pattern_matcher {
 
                     for &b in pattern.as_ref().iter() {
                         let b = b as usize;
-                        // Safety: ALPHABET_SIZE >= 256, and b is an u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE).
+                        // SAFETY: ALPHABET_SIZE >= 256, and b is an u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE).
                         unsafe {
                             if *trie_nodes.get_unchecked(curr).get_unchecked(b) == 0 {
                                 *trie_nodes.get_unchecked_mut(curr).get_unchecked_mut(b) = trie_nodes.len() as UType;
@@ -85,7 +85,7 @@ macro_rules! fast_pattern_matcher {
                     }
 
                     // Store pattern index at the terminal node
-                    // Safety: curr is a valid index because it was just pushed or existed in trie_nodes
+                    // SAFETY: curr is a valid index because it was just pushed or existed in trie_nodes
                     unsafe { *output_pattern_idx.get_unchecked_mut(curr) = idx as UType; }
                 }
 
@@ -98,10 +98,10 @@ macro_rules! fast_pattern_matcher {
                 let mut queue = VecDeque::<UType>::with_capacity(num_nodes);
 
                 for b in 0..ALPHABET_SIZE {
-                    // Safety: root node is not empty and b in 0..<ALPHABET_SIZE always
+                    // SAFETY: root node is not empty and b in 0..<ALPHABET_SIZE always
                     let child = unsafe { *trie_nodes.get_unchecked(0).get_unchecked(b) };
                     if child > 0 {
-                        // Safety: transitions.len() >= ALPHABET_SIZE and b < 256 (minimal ALPHABET_SIZE).
+                        // SAFETY: transitions.len() >= ALPHABET_SIZE and b < 256 (minimal ALPHABET_SIZE).
                         // Always within bounds.
                         unsafe { *transitions.get_unchecked_mut(b) = child; }
                         queue.push_back(child);
@@ -110,29 +110,31 @@ macro_rules! fast_pattern_matcher {
 
                 while let Some(u) = queue.pop_front() {
                     let u_idx = u as usize;
-                    // Safety: u_idx is an index of a node previously stored in trie_nodes.
+                    // SAFETY: u_idx is an index of a node previously stored in trie_nodes.
                     // Since all values added to the queue are valid indices from the trie,
                     // u_idx will always be within [0, trie_nodes.len() - 1].
                     let node = unsafe { *trie_nodes.get_unchecked(u_idx) };
                     for (b, &v) in node.iter().enumerate() {
                         let v_idx = v as usize;
                         if v > 0 {
-                            // Safety: u_idx is derived from values stored in trie_nodes.
+                            // SAFETY: u_idx is derived from values stored in trie_nodes.
                             // Since the number of nodes in the Trie defines the length of the fail array,
                             // any valid node index u will satisfy 0 <= u < fail.len().
                             let f = unsafe { *fail.get_unchecked(u_idx) as usize };
-                            let idx = f * ALPHABET_SIZE + b;
 
-                            // Safety: idx < num_nodes * ALPHABET_SIZE because u_idx < num_nodes
+                            // SAFETY: u32::MAX * u32::MAX + u8::MAX < usize::MAX always
+                            let idx = unsafe { f.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
+
+                            // SAFETY: idx < num_nodes * ALPHABET_SIZE because u_idx < num_nodes
                             // and b < 256 (minimal ALPHABET_SIZE)
                             unsafe { *fail.get_unchecked_mut(v_idx) = *transitions.get_unchecked(idx); }
 
-                            // Safety: v_idx is an index of a node stored in trie_nodes.
+                            // SAFETY: v_idx is an index of a node stored in trie_nodes.
                             // Since the number of nodes in the Trie defines the length of the fail array,
                             // any valid node index v will satisfy 0 <= v < fail.len().
                             let f_link = unsafe { *fail.get_unchecked(v_idx) };
 
-                            // Safety:
+                            // SAFETY:
                             // 1. Bounds: f_link is a valid node index (0 <= f_link < num_nodes),
                             //    so access to output_pattern_idx and dict_links is safe.
                             // 2. Termination: Since f_link always points to a node with smaller depth,
@@ -143,24 +145,26 @@ macro_rules! fast_pattern_matcher {
                                     else { *dict_links.get_unchecked(f_link as usize) };
                             }
 
-                            let idx = u_idx * ALPHABET_SIZE + b;
+                            // SAFETY: u32::MAX * u32::MAX + u8::MAX < usize::MAX always
+                            let idx = unsafe { u_idx.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
 
-                            // Safety: Transitions optimization uses pre-calculated transitions from failure link
+                            // SAFETY: Transitions optimization uses pre-calculated transitions from failure link
                             unsafe { *transitions.get_unchecked_mut(idx) = v; }
                             queue.push_back(v);
                         }
 
                         else {
-                            // Safety: u_idx is derived from values stored in trie_nodes.
+                            // SAFETY: u_idx is derived from values stored in trie_nodes.
                             // Since the number of nodes in the Trie defines the length of the fail array,
                             // any valid node index u will satisfy 0 <= u < fail.len().
                             let f = unsafe { *fail.get_unchecked(u_idx) as usize };
 
                             // Automaton optimization: pre-calculate the transition for non-existent Trie edges
-                            let idx1 = u_idx * ALPHABET_SIZE + b;
-                            let idx2 = f * ALPHABET_SIZE + b;
+                            // SAFETY: u32::MAX * u32::MAX + u8::MAX < usize::MAX always
+                            let idx1 = unsafe { u_idx.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
+                            let idx2 = unsafe { f.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
 
-                            // Safety: Transitions optimization uses pre-calculated transitions from failure link
+                            // SAFETY: Transitions optimization uses pre-calculated transitions from failure link
                             unsafe { *transitions.get_unchecked_mut(idx1) = *transitions.get_unchecked(idx2); }
                         }
                     }
