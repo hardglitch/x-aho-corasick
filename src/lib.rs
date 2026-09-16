@@ -7,8 +7,9 @@ mod tests;
 use std::collections::VecDeque;
 use ring_buffer::RingBuffer;
 
-/// Alphabet size must be 2^8..=2^32 (UTF-8, UTF-16, UTF-32).
-const ALPHABET_SIZE: usize = 256; // UTF-8
+
+/// Alphabet size must be 2^8, 2^9, ... 2^15, 2^16.
+const ALPHABET_SIZE: usize = 256; // Optimal size (UTF-8)
 
 /// This one uses u32 for realistic tasks (to save memory),
 /// but you can use u16 for small sets.
@@ -122,7 +123,9 @@ macro_rules! fast_pattern_matcher {
                             // any valid node index u will satisfy 0 <= u < fail.len().
                             let f = unsafe { *fail.get_unchecked(u_idx) as usize };
 
-                            // SAFETY: u32::MAX * u32::MAX + u8::MAX < usize::MAX always
+                            // SAFETY: The result is the index in the flat 'transitions' vector.
+                            // Since transitions.len() = num_nodes * ALPHABET_SIZE and f < num_nodes,
+                            // (f * ALPHABET_SIZE + b) is guaranteed to be within usize range and valid for the vector.
                             let idx = unsafe { f.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
 
                             // SAFETY: idx < num_nodes * ALPHABET_SIZE because u_idx < num_nodes
@@ -145,7 +148,9 @@ macro_rules! fast_pattern_matcher {
                                     else { *dict_links.get_unchecked(f_link as usize) };
                             }
 
-                            // SAFETY: u32::MAX * u32::MAX + u8::MAX < usize::MAX always
+                            // SAFETY: The result represents a valid offset in the 'transitions' vector.
+                            // Given that transitions was allocated with size num_nodes * ALPHABET_SIZE,
+                            // u_idx * ALPHABET_SIZE + b will not exceed usize::MAX and stays within bounds.
                             let idx = unsafe { u_idx.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
 
                             // SAFETY: Transitions optimization uses pre-calculated transitions from failure link
@@ -160,8 +165,13 @@ macro_rules! fast_pattern_matcher {
                             let f = unsafe { *fail.get_unchecked(u_idx) as usize };
 
                             // Automaton optimization: pre-calculate the transition for non-existent Trie edges
-                            // SAFETY: u32::MAX * u32::MAX + u8::MAX < usize::MAX always
+
+                            // SAFETY: u_idx < num_nodes and b < ALPHABET_SIZE. The product and sum
+                            // are guaranteed to fit in usize as they correspond to a valid index in the 'transitions' vector.
                             let idx1 = unsafe { u_idx.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
+
+                            // SAFETY: f < num_nodes and b < ALPHABET_SIZE. The resulting index is within the
+                            // allocated bounds of the 'transitions' vector, ensuring no usize overflow.
                             let idx2 = unsafe { f.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
 
                             // SAFETY: Transitions optimization uses pre-calculated transitions from failure link

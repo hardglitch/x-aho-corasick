@@ -38,10 +38,12 @@ impl<'a> Iterator for MatchIterator<'a> {
             let b = unsafe { *self.bytes.get_unchecked(i) as usize };
 
             // Go to the next node (DFA transition)
-            // SAFETY: self.current_node is always a value from transitions, which are indices < num_nodes.
-            // b is u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE),
-            // thus idx < num_nodes * 256 (minimal ALPHABET_SIZE).
-            // usize::MAX < u32::MAX * (u8::MAX..u32::MAX)
+            // SAFETY:
+            // 1. 'self.current_node' is an index of a node in the trie, so it is always < num_nodes.
+            // 2. 'b' is derived from u8, so b < 256, which is <= ALPHABET_SIZE.
+            // 3. The 'transitions' vector was allocated with size (num_nodes * ALPHABET_SIZE).
+            //    Therefore, the calculated index (current_node * ALPHABET_SIZE + b) is guaranteed
+            //    to be less than transitions.len(), fitting within usize and staying within bounds.
             let idx = unsafe { self.current_node.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
             unsafe { self.current_node = *transitions.get_unchecked(idx) as usize; }
 
@@ -49,7 +51,7 @@ impl<'a> Iterator for MatchIterator<'a> {
 
             let mut temp = self.current_node;
             while temp > 0 {
-                // SAFETY: temp is a node index from transitions, so temp < num_nodes.
+                // SAFETY: temp is a valid node index in the trie (0 <= temp < num_nodes).
                 let p_idx = unsafe { *output_pattern_idx.get_unchecked(temp) };
                 if p_idx != UType::MAX {
                     let idx = p_idx as usize;

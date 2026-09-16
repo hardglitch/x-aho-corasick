@@ -29,7 +29,7 @@ impl<'a> Iterator for MatchIterator<'a> {
             // SAFETY: self.current_node is always a value from transitions, which are indices < num_nodes.
             // b is u8 cast to usize, so b < 256 (minimal ALPHABET_SIZE),
             // thus idx < num_nodes * 256 (minimal ALPHABET_SIZE).
-            // usize::MAX < u32::MAX * (u8::MAX..u32::MAX)
+            // usize::MAX < u32::MAX * (u8::MAX..<u16::MAX) + u8::MAX
             let idx = unsafe { self.current_node.unchecked_mul(ALPHABET_SIZE).unchecked_add(b) };
             unsafe { self.current_node = *transitions.get_unchecked(idx) as usize; }
 

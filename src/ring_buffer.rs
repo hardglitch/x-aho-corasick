@@ -21,7 +21,7 @@ impl<T> RingBuffer<T> {
 	pub(crate) fn push_back(&mut self, value: T) {
 		if self.count < BUFFER_SIZE {
             // SAFETY: head and count are less that BUFFER_SIZE always,
-            // and BUFFER_SIZE << usize::MAX && BUFFER_SIZE > 0
+            // and BUFFER_SIZE < usize::MAX && BUFFER_SIZE > 0
 			let index = unsafe { (self.head.unchecked_add(self.count)) & (BUFFER_SIZE.unchecked_sub(1)) };
 
 			// SAFETY:
@@ -30,7 +30,7 @@ impl<T> RingBuffer<T> {
             // 2. We are writing to a valid memory location of type MaybeUninit<T>.
             unsafe { self.pending_matches.get_unchecked_mut(index).as_mut_ptr().write(value); }
 
-			// SAFETY: head is less that BUFFER_SIZE always, and BUFFER_SIZE << usize::MAX
+			// SAFETY: head is less that BUFFER_SIZE always, and BUFFER_SIZE < usize::MAX
             self.count = unsafe { self.count.unchecked_add(1) };
 		}
 		else {
@@ -47,7 +47,7 @@ impl<T> RingBuffer<T> {
 			}
 
             // SAFETY: head is less that BUFFER_SIZE always,
-            // and BUFFER_SIZE << usize::MAX && BUFFER_SIZE > 0
+            // and BUFFER_SIZE < usize::MAX && BUFFER_SIZE > 0
             self.head = unsafe { (self.head.unchecked_add(1)) & (BUFFER_SIZE.unchecked_sub(1)) };
 		}
 	}
@@ -65,7 +65,7 @@ impl<T> RingBuffer<T> {
             let value = unsafe { std::ptr::read(self.pending_matches.get_unchecked(index).as_ptr()) };
 
             // SAFETY: head is less that BUFFER_SIZE always,
-            // and BUFFER_SIZE << usize::MAX && BUFFER_SIZE > 0
+            // and BUFFER_SIZE < usize::MAX && BUFFER_SIZE > 0
             self.head = unsafe { (self.head.unchecked_add(1)) & (BUFFER_SIZE.unchecked_sub(1)) };
 
             // SAFETY: self.count > 0
@@ -81,7 +81,7 @@ impl<T> Drop for RingBuffer<T> {
         let mut i = 0;
         while i < self.count {
             // SAFETY: head and count are less that BUFFER_SIZE always,
-            // and BUFFER_SIZE << usize::MAX && BUFFER_SIZE > 0
+            // and BUFFER_SIZE < usize::MAX && BUFFER_SIZE > 0
             let index = unsafe { (self.head.unchecked_add(i)) & (BUFFER_SIZE.unchecked_sub(1)) };
 
 			// SAFETY:
@@ -92,7 +92,7 @@ impl<T> Drop for RingBuffer<T> {
 				std::ptr::drop_in_place(ptr);
 			}
 
-            // SAFETY: i < self.count < BUFFER_SIZE << usize::MAX always
+            // SAFETY: i < self.count < BUFFER_SIZE < usize::MAX always
             i = unsafe { i.unchecked_add(1) };
         }
     }
