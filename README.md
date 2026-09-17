@@ -12,16 +12,16 @@ An eXtra-performance implementation of the **Aho-Corasick algorithm** in Rust.
 
 | Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | [x-aho-corasick](https://github.com/hardglitch/x-aho-corasick) |
 | :--- | :---: | :---: | :---: |
-| **Non-overlapping** | x1.00 | x1.30 | **x1.98x** |
-| **Overlapping** | x1.00 | x1.33 | **x1.49x** |
+| **Non-overlapping** | x1.00 | x1.30 | **x1.98** |
+| **Overlapping** | x1.00 | x1.33 | **x1.49** |
 
 ### Hardcore bench (search all)
 *561k unique patterns (2..=122 bytes, multi-language) in 95.4 MB text (10_582_506 words, multi-language)*
 
 | Scenario | [aho-corasik](https://github.com/BurntSushi/aho-corasick) | [daachorse](https://github.com/daac-tools/daachorse) | [x-aho-corasick](https://github.com/hardglitch/x-aho-corasick) |
 | :--- | :---: | :---: | :---: |
-| **Non-overlapping** | x1.00 | x2.03 | **x2.36x** |
-| **Overlapping** | x1.00 | **x1.67** | x1.34x |
+| **Non-overlapping** | x1.00 | x2.03 | **x2.36** |
+| **Overlapping** | x1.00 | **x1.67** | x1.34 |
 
 ## Reliability & Coverage
 - **Memory Safety**: Verified with `cargo miri` (100% clean).
